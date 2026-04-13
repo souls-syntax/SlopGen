@@ -11,7 +11,9 @@ import (
 	"github.com/openai/openai-go/v3/option"
 	"github.com/souls-syntax/SlopGen/app/internal/model"
 )
-
+type ReadArgs struct {
+    FilePath string `json:"file_path"`
+}
 func main() {
 	// var NGROK_LINK string
 	// flag.StringVar(&NGROK_LINK, )
@@ -28,7 +30,7 @@ func main() {
 	// apiKey := os.Getenv("OPENROUTER_API_KEY")
 	baseUrl := os.Getenv("OPENROUTER_BASE_URL")
 	if baseUrl == "" {
-		baseUrl = "http://172.19.240.1:11434/v1"
+		baseUrl = "http://localhost:11434/v1"
 	}
 	readTool := model.Tool{
 		Type: "function",
@@ -60,12 +62,12 @@ func main() {
 						},
 					},
 				},
-			},
+			}
 		tools :=  []openai.ChatCompletionToolUnionParam{res}
 	for {
 		resp, err := client.Chat.Completions.New(context.Background(),
 			openai.ChatCompletionNewParams{
-				Model: "deepseek-coder:6.7b",
+				Model: "qwen2.5:0.5b",
 				Messages:messages ,
 				Tools:tools,
 			},
@@ -85,9 +87,15 @@ func main() {
 		messages = append(messages, msg.ToParam())
 
 		if len(msg.ToolCalls) > 0 {
+
 			for _, tc := range msg.ToolCalls{
 				switch tc.Function.Name {
 				case "Read":
+					var args ReadArgs
+    			if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+        		fmt.Fprintf(os.Stderr, "failed to parse Read args: %v\n", err)
+        		continue
+    			}
 					content, _ := os.ReadFile(args.FilePath)
 					messages = append(messages, openai.ToolMessage(string(content), tc.ID))
 				}
