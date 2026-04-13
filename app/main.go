@@ -30,10 +30,6 @@ func main() {
 	if baseUrl == "" {
 		baseUrl = "http://172.19.240.1:11434/v1"
 	}
-	// if apiKey == "" {
-	// 	panic("Env variable OPENROUTER_API_KEY not found")
-	// }
-	// history := make([]string,0)
 	readTool := model.Tool{
 		Type: "function",
 		Function: model.Function{
@@ -54,10 +50,7 @@ func main() {
 	res, _ := readTool.ConvertToOpenAITool()
 
 	client := openai.NewClient(option.WithAPIKey("ollama"), option.WithBaseURL(baseUrl))
-	resp, err := client.Chat.Completions.New(context.Background(),
-		openai.ChatCompletionNewParams{
-			Model: "deepseek-coder:6.7b",
-			Messages: []openai.ChatCompletionMessageParamUnion{
+	messages := []openai.ChatCompletionMessageParamUnion{
 				{
 					OfUser: &openai.ChatCompletionUserMessageParam{
 						Content: openai.ChatCompletionUserMessageParamContentUnion{
@@ -68,33 +61,42 @@ func main() {
 					},
 				},
 			},
-			Tools: []openai.ChatCompletionToolUnionParam{res},
-		},
-	)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-	if len(resp.Choices) == 0 {
-		panic("No choices in response")
-	}
-
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	fmt.Fprintln(os.Stderr, "Logs from your program will appear here!")
-
-	choice := resp.Choices[0]
-	msg := choice.Message
-
-	if len(msg.ToolCalls) > 0 {
-		toolCall := msg.ToolCalls[0]
-		var args model.Args
-
-		if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-			fmt.Fprintln(os.Stderr, "failed to parse tool args:", err)
+		tools :=  []openai.ChatCompletionToolUnionParam{res}
+	for {
+		resp, err := client.Chat.Completions.New(context.Background(),
+			openai.ChatCompletionNewParams{
+				Model: "deepseek-coder:6.7b",
+				Messages:messages ,
+				Tools:tools,
+			},
+		)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
-	}
+		if len(resp.Choices) == 0 {
+			panic("No choices in response")
+		}
+		// You can use print statements as follows for debugging, they'll be visible when running tests.
+		fmt.Fprintln(os.Stderr, "Logs from your program will appear here!")
 
-	// TODO: Uncomment the line below to pass the first stage
-	fmt.Print(resp.Choices[0].Message.Content)
+		choice := resp.Choices[0]
+		msg := choice.Message
+		messages = append(messages, msg.ToParam())
+
+		if len(msg.ToolCalls) > 0 {
+			for _, tc := range msg.ToolCalls{
+				switch tc.Function.Name {
+				case "Read":
+					content, _ := os.ReadFile(args.FilePath)
+					messages = append(messages, openai.ToolMessage(string(content), tc.ID))
+				}
+			}
+		} else {
+			fmt.Print(msg.Content)
+			break
+		}
+
+		// fmt.Print(resp.Choices[0].Message.Content)
+	}
 }
