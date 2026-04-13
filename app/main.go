@@ -13,24 +13,27 @@ import (
 )
 
 func main() {
+	// var NGROK_LINK string
+	// flag.StringVar(&NGROK_LINK, )
 	var prompt string
 	flag.StringVar(&prompt, "p", "", "Prompt to send to LLM")
+	// So we are taking the prompt here. Likely
+
 	flag.Parse()
 
 	if prompt == "" {
 		panic("Prompt must not be empty")
 	}
 
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	// apiKey := os.Getenv("OPENROUTER_API_KEY")
 	baseUrl := os.Getenv("OPENROUTER_BASE_URL")
 	if baseUrl == "" {
-		baseUrl = "https://openrouter.ai/api/v1"
+		baseUrl = "http://172.19.240.1:11434/v1"
 	}
-
-	if apiKey == "" {
-		panic("Env variable OPENROUTER_API_KEY not found")
-	}
-
+	// if apiKey == "" {
+	// 	panic("Env variable OPENROUTER_API_KEY not found")
+	// }
+	// history := make([]string,0)
 	readTool := model.Tool{
 		Type: "function",
 		Function: model.Function{
@@ -50,14 +53,16 @@ func main() {
 	}
 	res, _ := readTool.ConvertToOpenAITool()
 
-	client := openai.NewClient(option.WithAPIKey(apiKey), option.WithBaseURL(baseUrl))
+	client := openai.NewClient(option.WithAPIKey("ollama"), option.WithBaseURL(baseUrl))
 	resp, err := client.Chat.Completions.New(context.Background(),
 		openai.ChatCompletionNewParams{
-			Model: "anthropic/claude-haiku-4.5",
+			Model: "deepseek-coder:6.7b",
 			Messages: []openai.ChatCompletionMessageParamUnion{
 				{
 					OfUser: &openai.ChatCompletionUserMessageParam{
 						Content: openai.ChatCompletionUserMessageParamContentUnion{
+							// We need to feed history slice here.
+							// How to feel array to openAI go api?
 							OfString: openai.String(prompt),
 						},
 					},
