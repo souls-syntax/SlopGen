@@ -25,3 +25,12 @@ type Tool struct {
 type Args struct {
 	FilePath string `json:"file_path"`
 }
+
+type WriteArgs struct {
+	FilePath string `json:"file_path"`
+	Content  string `json:"content"`
+}
+
+type ExecuteArgs struct {
+	Command string `json:"command"`
+}
